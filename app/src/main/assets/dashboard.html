@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>مانیتور شبکه‌ی ایجنت‌ها</title>
+<style>
+  :root{
+    --bg:#0a0e14; --card:#11161f; --card2:#161c28;
+    --neon:#00e5ff; --green:#00e676; --amber:#ffb300; --red:#ff5252; --gray:#8a8f98;
+    --txt:#e8ecf1; --dim:#9aa3b2;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--txt);
+    font-family:"Vazirmatn","IRANSans","Tahoma",sans-serif; font-size:15px;}
+  header{position:sticky; top:0; z-index:10; background:rgba(10,14,20,.92);
+    backdrop-filter:blur(6px); border-bottom:1px solid #1c2330; padding:12px 16px;}
+  header h1{margin:0; font-size:18px; color:var(--neon);}
+  header .sub{font-size:12px; color:var(--dim); margin-top:2px;}
+  header .row{display:flex; align-items:center; justify-content:space-between;}
+  .iconbtn{background:var(--card2); color:var(--txt); border:1px solid #263040;
+    border-radius:10px; padding:6px 12px; font-size:14px; cursor:pointer;}
+  #banner{background:#2a1e05; border:1px solid var(--amber); color:#ffd97a;
+    margin:12px 16px 0; padding:10px 14px; border-radius:12px; font-size:13px;
+    display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  #banner button{background:var(--amber); border:0; border-radius:8px;
+    padding:6px 12px; font-size:13px; cursor:pointer; color:#1a1206; font-weight:bold;}
+  .group{padding:14px 16px 0;}
+  .group h2{font-size:14px; color:var(--dim); margin:0 0 10px; font-weight:normal;}
+  .cards{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .card{background:var(--card); border:1px solid #1e2635; border-radius:14px;
+    padding:12px; cursor:pointer; transition:transform .12s;}
+  .card:active{transform:scale(.97);}
+  .card .top{display:flex; align-items:center; gap:8px;}
+  .card .emoji{font-size:26px;}
+  .card .name{font-size:14px; font-weight:bold;}
+  .card .role{font-size:11px; color:var(--dim); margin-top:1px;}
+  .badge{display:inline-block; font-size:11px; border-radius:20px; padding:2px 10px;
+    margin-top:8px; color:#06121a; font-weight:bold;}
+  .card .task{font-size:12px; color:var(--dim); margin-top:8px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .card .task b{color:var(--txt); font-weight:normal;}
+  .card .meta{font-size:11px; color:var(--dim); margin-top:4px;}
+  #state{padding:40px 20px; text-align:center; color:var(--dim); font-size:14px;}
+  /* bottom sheet */
+  #overlay{position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:20;
+    display:none;}
+  #overlay.open{display:block;}
+  #sheet{position:fixed; left:0; right:0; bottom:0; z-index:21; background:var(--card2);
+    border-top:1px solid #263040; border-radius:18px 18px 0 0; padding:18px;
+    transform:translateY(110%); transition:transform .25s ease;}
+  #sheet.open{transform:translateY(0);}
+  #sheet .grab{width:44px; height:4px; border-radius:2px; background:#2c3547;
+    margin:0 auto 14px;}
+  #sheet h3{margin:0 0 4px; font-size:17px;}
+  #sheet .role{font-size:13px; color:var(--dim); margin-bottom:12px;}
+  #sheet .row{font-size:13px; margin:6px 0; color:var(--dim);}
+  #sheet .row b{color:var(--txt); font-weight:normal;}
+  #sheet .btns{display:flex; gap:10px; margin-top:16px;}
+  #sheet .btns button{flex:1; border:0; border-radius:12px; padding:12px;
+    font-size:15px; cursor:pointer; font-weight:bold;}
+  #btnPause{background:#3a2b00; color:var(--amber); border:1px solid var(--amber);}
+  #btnResume{background:#00331c; color:var(--green); border:1px solid var(--green);}
+  #btnPause:disabled,#btnResume:disabled{opacity:.4;}
+  #toast{position:fixed; bottom:24px; left:16px; right:16px; z-index:30;
+    background:#1c2330; border:1px solid #2c3547; color:var(--txt);
+    padding:12px 16px; border-radius:12px; font-size:14px; text-align:center;
+    display:none;}
+  #toast.show{display:block;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="row">
+    <div>
+      <h1>🕸️ مانیتور شبکه‌ی ایجنت‌ها</h1>
+      <div class="sub" id="updatedAt">در حال اتصال…</div>
+    </div>
+    <div>
+      <button class="iconbtn" onclick="refreshFeed()">↻</button>
+      <button class="iconbtn" onclick="openSettings()">⚙️</button>
+    </div>
+  </div>
+</header>
+
+<div id="banner" hidden>
+  <span>برای فرمان توقف/شروع، توکن گیت‌هاب را وارد کن.</span>
+  <button onclick="openSettings()">تنظیمات</button>
+</div>
+
+<div id="state">در حال دریافت وضعیت ایجنت‌ها…</div>
+<div id="groups"></div>
+
+<div id="overlay" onclick="closeSheet()"></div>
+<div id="sheet">
+  <div class="grab"></div>
+  <h3 id="shName"></h3>
+  <div class="role" id="shRole"></div>
+  <div class="row">وضعیت: <b id="shStatus"></b></div>
+  <div class="row">مشغول به: <b id="shTask"></b></div>
+  <div class="row">آخرین فعالیت: <b id="shActivity"></b></div>
+  <div class="row">کارهای امروز: <b id="shDone"></b></div>
+  <div class="btns">
+    <button id="btnPause" onclick="sendCmd('pause')">⏸ توقف کار</button>
+    <button id="btnResume" onclick="sendCmd('resume')">▶ شروع مجدد</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+var FEED_URL = "https://raw.githubusercontent.com/thaarfknight-star/TAgents/main/status.json";
+var STATUS = {
+  working:{fa:"در حال کار", c:"#00e676"},
+  idle:{fa:"بیکار", c:"#8a8f98"},
+  paused:{fa:"متوقف شده", c:"#ffb300"},
+  error:{fa:"خطا", c:"#ff5252"}
+};
+var GROUPS = {main:"شبکه‌ی main", work:"شبکه‌ی work"};
+var current = null;
+var agentsById = {};
+
+function hasBridge(){ return typeof Android !== "undefined"; }
+
+function openSettings(){ if(hasBridge()) Android.openSettings(); }
+
+function relFa(iso){
+  if(!iso) return "—";
+  var d = (Date.now() - new Date(iso).getTime())/1000;
+  if(d < 0) d = 0;
+  if(d < 60) return "لحظاتی پیش";
+  var m = Math.floor(d/60);
+  if(m < 60) return m + " دقیقه پیش";
+  var h = Math.floor(m/60);
+  if(h < 24) return h + " ساعت پیش";
+  var days = Math.floor(h/24);
+  if(days === 1) return "دیروز";
+  return days + " روز پیش";
+}
+
+function esc(s){
+  return String(s == null ? "" : s).replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function toast(msg){
+  var t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(function(){ t.classList.remove("show"); }, 4000);
+}
+
+function render(feed){
+  var groups = document.getElementById("groups");
+  var state = document.getElementById("state");
+  var list = (feed && feed.agents) || [];
+  agentsById = {};
+  if(!list.length){
+    state.style.display = "block";
+    state.textContent = "هنوز ایجنتی در فید ثبت نشده است.";
+    groups.innerHTML = "";
+    return;
+  }
+  state.style.display = "none";
+  var order = ["main","work"];
+  var html = "";
+  order.forEach(function(g){
+    var items = list.filter(function(a){ return (a.group || "main") === g; });
+    if(!items.length) return;
+    html += '<div class="group"><h2>' + esc(GROUPS[g] || g) + " (" + items.length + ")</h2><div class='cards'>";
+    items.forEach(function(a){
+      agentsById[a.id] = a;
+      var st = STATUS[a.status] || STATUS.idle;
+      html += "<div class='card' onclick=\"openSheet('" + esc(a.id) + "')\">" +
+        "<div class='top'><span class='emoji'>" + esc(a.emoji || "🤖") + "</span>" +
+        "<div><div class='name'>" + esc(a.name || a.id) + "</div>" +
+        "<div class='role'>" + esc(a.role_fa || "") + "</div></div></div>" +
+        "<span class='badge' style='background:" + st.c + "'>" + st.fa + "</span>" +
+        "<div class='task'>مشغول به: <b>" + esc(a.current_task || "—") + "</b></div>" +
+        "<div class='meta'>" + relFa(a.last_activity) +
+        (a.today_done != null ? " · امروز: " + a.today_done : "") + "</div></div>";
+    });
+    html += "</div></div>";
+  });
+  groups.innerHTML = html;
+  var up = document.getElementById("updatedAt");
+  up.textContent = "آخرین به‌روزرسانی: " + relFa(feed.updated_at);
+  document.title = "مانیتور شبکه‌ی ایجنت‌ها";
+}
+
+function showError(){
+  var state = document.getElementById("state");
+  state.style.display = "block";
+  state.textContent = "فید وضعیت در دسترس نیست — اتصال اینترنت را بررسی کنید.";
+}
+
+function refreshFeed(){
+  fetch(FEED_URL, {cache:"no-store"}).then(function(r){
+    if(!r.ok) throw new Error("http " + r.status);
+    return r.json();
+  }).then(render).catch(showError)
+  .then(function(){ if(hasBridge()) Android.onFeedRefreshed(); });
+  if(hasBridge() && !Android.hasToken()){
+    document.getElementById("banner").hidden = false;
+  } else {
+    document.getElementById("banner").hidden = true;
+  }
+}
+
+function openSheet(id){
+  var a = agentsById[id];
+  if(!a) return;
+  current = a;
+  var st = STATUS[a.status] || STATUS.idle;
+  document.getElementById("shName").textContent = (a.emoji || "🤖") + " " + (a.name || a.id);
+  document.getElementById("shRole").textContent = a.role_fa || "";
+  document.getElementById("shStatus").textContent = st.fa;
+  document.getElementById("shTask").textContent = a.current_task || "—";
+  document.getElementById("shActivity").textContent = relFa(a.last_activity);
+  document.getElementById("shDone").textContent = (a.today_done != null ? a.today_done : "—");
+  document.getElementById("btnPause").disabled = (a.status === "paused");
+  document.getElementById("btnResume").disabled = (a.status !== "paused");
+  document.getElementById("overlay").classList.add("open");
+  document.getElementById("sheet").classList.add("open");
+}
+
+function closeSheet(){
+  document.getElementById("overlay").classList.remove("open");
+  document.getElementById("sheet").classList.remove("open");
+  current = null;
+}
+
+function sendCmd(action){
+  if(!current) return;
+  if(!hasBridge()){ toast("این دکمه فقط داخل اپ کار می‌کند."); return; }
+  if(!Android.hasToken()){ toast("اول توکن گیت‌هاب را در تنظیمات وارد کن."); openSettings(); return; }
+  document.getElementById("btnPause").disabled = true;
+  document.getElementById("btnResume").disabled = true;
+  toast(action === "pause" ? "در حال ثبت فرمان توقف…" : "در حال ثبت فرمان شروع مجدد…");
+  Android.sendCommand(current.id, action);
+}
+
+function onCommandResult(jsonStr){
+  try{
+    var r = JSON.parse(jsonStr);
+    toast(r.message || (r.ok ? "انجام شد." : "ناموفق بود."));
+  }catch(e){ toast("پاسخ نامعتبر از اپ."); }
+  closeSheet();
+  setTimeout(refreshFeed, 3000);
+}
+
+refreshFeed();
+setInterval(refreshFeed, 15000);
+</script>
+</body>
+</html>
