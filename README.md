@@ -1,8 +1,13 @@
 # مانیتور شبکه‌ی ایجنت‌ها — نسخه‌ی اندروید 🕸️🤖
 
-اپ اندرویدی نظارت زنده بر شبکه‌ی ایجنت‌ها (BabyT + یازده ایجنت): هر ایجنت یک کارت زنده دارد —
+اپ اندرویدی نظارت زنده بر شبکه‌ی **main** ایجنت‌ها (BabyT + پنج ایجنت): هر ایجنت یک کارت زنده دارد —
 وضعیت، کاری که الان مشغولش است و آخرین فعالیت — و با تپ روی هر کارت می‌شود کارش را
 متوقف یا دوباره شروع کرد.
+
+> **محدوده:** این برنامه فقط شبکه‌ی **main** را پوشش می‌دهد
+> (BabyT 🧠، TAgent 🎮، TAgent1، TAgent2، TAgent3، TAgent4).
+> شبکه‌ی **work** (IASinsta 📹، BEPagent ☀️، IASagent 🖥️، IVAagent 🤖، LICagent 🔑، LAWagent ⚖️)
+> به دستور طه کاملاً دست‌نخورده می‌ماند و در این اپ نمایش داده نمی‌شود.
 
 این ریپو، نسخه‌ی اندرویدِ برنامه‌ای است که نسخه‌ی ویندوزش (PyQt6) در ریپوی
 [thaarfknight-star/TAgents](https://github.com/thaarfknight-star/TAgents) ساخته می‌شود.
@@ -33,8 +38,8 @@ https://raw.githubusercontent.com/thaarfknight-star/TAgents/main/status.json
   ]
 }
 ```
-دوازده نود: BabyT + یازده ایجنت (TAgent 🎮، TAgent1 تا TAgent4، IASinsta 📹،
-BEPagent ☀️، IASagent 🖥️، IVAagent 🤖، LICagent 🔑، LAWagent ⚖️).
+شش نود شبکه‌ی main: BabyT 🧠، TAgent 🎮، TAgent1، TAgent2، TAgent3، TAgent4.
+(ورودی‌های غیر main اگر در فید باشند، توسط اپ فیلتر و نادیده گرفته می‌شوند.)
 
 ### ۲. حلقه‌ی فرمان (نوشتنی، با توکن گیت‌هاب)
 - اپ فایل `inbox/cmd-<epoch>.json` را با GitHub Contents API در ریپوی `TAgents` می‌سازد:

@@ -116,7 +116,7 @@ var STATUS = {
   paused:{fa:"متوقف شده", c:"#ffb300"},
   error:{fa:"خطا", c:"#ff5252"}
 };
-var GROUPS = {main:"شبکه‌ی main", work:"شبکه‌ی work"};
+var GROUPS = {main:"شبکه‌ی main"};
 var current = null;
 var agentsById = {};
 
@@ -152,7 +152,8 @@ function toast(msg){
 function render(feed){
   var groups = document.getElementById("groups");
   var state = document.getElementById("state");
-  var list = (feed && feed.agents) || [];
+  // main-only: فقط ایجنت‌های شبکه‌ی main نمایش داده می‌شوند (دستور طه)
+  var list = ((feed && feed.agents) || []).filter(function(a){ return (a.group || "main") === "main"; });
   agentsById = {};
   if(!list.length){
     state.style.display = "block";
@@ -161,7 +162,7 @@ function render(feed){
     return;
   }
   state.style.display = "none";
-  var order = ["main","work"];
+  var order = ["main"];
   var html = "";
   order.forEach(function(g){
     var items = list.filter(function(a){ return (a.group || "main") === g; });
