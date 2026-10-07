@@ -19,8 +19,16 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # NOTE: ubuntu-latest runners ship a full Android SDK already
+      # (ANDROID_HOME is pre-set). The old android-actions/setup-android@v3
+      # step was removed because it fails with "Failed to find package 'tools'"
+      # (the obsolete `tools` package no longer exists in the SDK repo).
+      - name: Prepare Android SDK (preinstalled on runner)
+        run: |
+          for d in "$ANDROID_HOME/cmdline-tools/latest/bin" "$ANDROID_HOME/cmdline-tools/16.0/bin" /usr/local/lib/android/sdk/cmdline-tools/latest/bin /usr/local/lib/android/sdk/cmdline-tools/16.0/bin; do
+            if [ -x "$d/sdkmanager" ]; then export PATH="$d:$PATH"; echo "sdkmanager found: $d"; break; fi
+          done
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
 
       - name: Build debug APK
         run: |
