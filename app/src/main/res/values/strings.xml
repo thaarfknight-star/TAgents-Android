@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">مانیتور ایجنت‌ها</string>
+    <string name="settings_title">تنظیمات</string>
+    <string name="token_label">توکن گیت‌هاب (PAT)</string>
+    <string name="token_hint">توکن فقط روی همین گوشی ذخیره می‌شود و برای ثبت فرمان توقف/شروع در ریپوی TAgents لازم است. آن را از Settings → Developer settings گیت‌هاب بسازید.</string>
+    <string name="save">ذخیره</string>
+    <string name="clear">پاک کردن</string>
+    <string name="token_saved">توکن ذخیره شد</string>
+    <string name="token_cleared">توکن پاک شد</string>
+</resources>
