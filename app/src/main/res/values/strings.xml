@@ -40,6 +40,8 @@
     <string name="sentinel_err_rate_limited">محدودیت نرخ گیت‌هاب رد شد؛ بعداً تلاش کنید</string>
     <string name="sentinel_err_weak">این توکن برای این عملیات اختیار کافی ندارد</string>
     <string name="sentinel_err_keystore">باز کردن صندوق امن ناموفق بود (Keystore گوشی). قفل صفحه را فعال کنید و دوباره تلاش کنید.</string>
-    <string name="sentinel_err_unknown">خطای نامشخص</string>
+    <string name="sentinel_err_unknown">خطای نامشخص؛ دوباره تلاش کن</string>
     <string name="sentinel_token_not_found">توکن پیدا نشد</string>
+    <string name="sentinel_vault_error_plain">خطا در باز کردن صندوق امن</string>
+    <string name="sentinel_cmd_error">خطا در ثبت فرمان؛ دوباره تلاش کن</string>
 </resources>

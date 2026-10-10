@@ -61,7 +61,11 @@ class JsBridge(private val activity: Activity, private val webView: WebView) {
                 out.put("action", action)
             } catch (e: Exception) {
                 out.put("ok", false)
-                out.put("message", if (e.message == "no_token") "اول توکن گیت‌هاب را وارد کن." else "خطا: ${e.message}")
+                out.put(
+                    "message",
+                    if (e.message == "no_token") "اول توکن گیت‌هاب را وارد کن."
+                    else activity.getString(R.string.sentinel_cmd_error)
+                )
             }
             jsCallback("onCommandResult", out)
         }
@@ -142,13 +146,13 @@ class JsBridge(private val activity: Activity, private val webView: WebView) {
         }
     }
 
-    /** Maps inspector exceptions to user-facing Persian strings. */
+    /** Maps inspector exceptions to user-facing Persian strings (no raw text). */
     private fun userMessage(e: Exception): String = when (e) {
         is TokenInvalidException -> activity.getString(R.string.sentinel_err_invalid)
         is TokenNetworkException -> activity.getString(R.string.sentinel_err_no_internet)
         is TokenRateLimitedException -> activity.getString(R.string.sentinel_err_rate_limited)
         is TokenRevokeForbiddenException -> activity.getString(R.string.sentinel_err_weak)
-        else -> e.message ?: activity.getString(R.string.sentinel_err_unknown)
+        else -> activity.getString(R.string.sentinel_err_unknown)
     }
 
     /**

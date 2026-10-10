@@ -54,7 +54,8 @@ class SettingsActivity : AppCompatActivity() {
     private fun toast(msg: String) =
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 
-    /** Keystore/security failures get a friendly message, not raw tech text. */
+    /** Keystore/security failures get a friendly message; raw exception text
+     *  is never shown to the user (often English/technical). */
     private fun keystoreMessage(e: Exception): String {
         var c: Throwable? = e
         while (c != null) {
@@ -63,7 +64,7 @@ class SettingsActivity : AppCompatActivity() {
             }
             c = c.cause
         }
-        return getString(R.string.sentinel_vault_error, e.message ?: "")
+        return getString(R.string.sentinel_vault_error_plain)
     }
 
     private fun refresh() {
