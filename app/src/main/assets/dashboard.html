@@ -67,6 +67,27 @@
     padding:12px 16px; border-radius:12px; font-size:14px; text-align:center;
     display:none;}
   #toast.show{display:block;}
+  /* token sentinel */
+  .sent-head{display:flex; align-items:center; gap:10px; margin-bottom:4px;}
+  .sent-head h2{flex:1; margin:0;}
+  .honest{background:#141b28; border:1px solid #263040; border-radius:12px;
+    padding:10px 14px; font-size:13px; color:var(--dim); margin:10px 0; line-height:1.9;}
+  .honest b{color:var(--amber);}
+  .sent-card{margin-bottom:10px; cursor:default;}
+  .btns2{display:flex; gap:8px; margin-top:10px;}
+  .btns2 button{flex:1; border-radius:10px; padding:10px; font-size:14px; cursor:pointer;
+    background:var(--card2); color:var(--txt); border:1px solid #263040;}
+  .btns2 button.danger{background:#3a0d12; color:var(--red); border:1px solid var(--red);}
+  .sent-actions{display:flex; gap:8px; margin:10px 0;}
+  .sent-actions .iconbtn{flex:1; text-align:center; padding:10px;}
+  .sent-detail{margin-top:10px; cursor:default;}
+  .avatar{width:44px; height:44px; border-radius:50%;}
+  .rowline{font-size:13px; color:var(--dim); margin:8px 0; line-height:1.8;}
+  .rowline b{color:var(--txt); font-weight:normal;}
+  .dim{color:var(--dim); font-size:12px;}
+  .warn{background:#3a0d12; border:1px solid var(--red); color:#ff9aa2;
+    border-radius:10px; padding:10px 12px; font-size:13px; margin:10px 0; line-height:1.9;}
+  .evlist{margin:6px 0; padding-right:18px; font-size:13px; color:var(--dim); line-height:2;}
 </style>
 </head>
 <body>
@@ -79,6 +100,7 @@
     </div>
     <div>
       <button class="iconbtn" onclick="refreshFeed()">↻</button>
+      <button class="iconbtn" onclick="showSentinel()">🛡️</button>
       <button class="iconbtn" onclick="openSettings()">⚙️</button>
     </div>
   </div>
@@ -91,6 +113,26 @@
 
 <div id="state">در حال دریافت وضعیت ایجنت‌ها…</div>
 <div id="groups"></div>
+
+<div id="sentinel" hidden>
+  <div class="group">
+    <div class="sent-head">
+      <button class="iconbtn" onclick="showDashboard()">‹ بازگشت</button>
+      <h2>🛡️ نگهبان توکن</h2>
+    </div>
+    <div class="honest">
+      <b>شفافیت:</b> گیت‌هاب هیچ راهی نمی‌دهد که بفهمیم دقیقاً کدام شخص یا هوش مصنوعی
+      (مثل ChatGPT، Claude یا Gemini) از یک توکن مشترک استفاده می‌کند.
+      تنها راه مطمئن برای قطع یک مصرف‌کننده‌ی ناشناس، باطل‌کردن توکن و صدور توکن تازه است.
+    </div>
+    <div id="sentList"></div>
+    <div class="sent-actions">
+      <button class="iconbtn" onclick="openSettings()">＋ افزودن / مدیریت توکن‌ها</button>
+      <button class="iconbtn" onclick="openSecurityLog()">📋 لاگ امنیتی گیت‌هاب</button>
+    </div>
+    <div id="sentDetail"></div>
+  </div>
+</div>
 
 <div id="overlay" onclick="closeSheet()"></div>
 <div id="sheet">
@@ -126,7 +168,9 @@ function openSettings(){ if(hasBridge()) Android.openSettings(); }
 
 function relFa(iso){
   if(!iso) return "—";
-  var d = (Date.now() - new Date(iso).getTime())/1000;
+  var t = new Date(iso).getTime();
+  if(isNaN(t)) return "—";
+  var d = (Date.now() - t)/1000;
   if(d < 0) d = 0;
   if(d < 60) return "لحظاتی پیش";
   var m = Math.floor(d/60);
@@ -248,6 +292,119 @@ function onCommandResult(jsonStr){
   closeSheet();
   setTimeout(refreshFeed, 3000);
 }
+
+/* ---------- Token Sentinel ---------- */
+function showSentinel(){
+  document.getElementById("groups").hidden = true;
+  document.getElementById("state").style.display = "none";
+  document.getElementById("sentinel").hidden = false;
+  refreshSentinel();
+}
+function showDashboard(){
+  document.getElementById("sentinel").hidden = true;
+  document.getElementById("groups").hidden = false;
+  refreshFeed();
+}
+function fmtDate(ts){
+  if(!ts) return "—";
+  var d = new Date(ts);
+  return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate();
+}
+function relFaFuture(ts){
+  var t = new Date(ts).getTime();
+  var f = (t - Date.now()) / 1000;
+  if(f > 0){
+    if(f < 3600) return "کمتر از یک ساعت دیگر";
+    return "حدود " + Math.floor(f / 3600) + " ساعت دیگر";
+  }
+  return relFa(ts);
+}
+function refreshSentinel(){
+  var list = document.getElementById("sentList");
+  document.getElementById("sentDetail").innerHTML = "";
+  if(!hasBridge()){ list.innerHTML = '<div class="honest">این بخش فقط داخل اپ کار می‌کند.</div>'; return; }
+  var raw = "[]";
+  try { raw = Android.vaultList(); } catch(e){}
+  var arr;
+  try { arr = JSON.parse(raw); } catch(e){ arr = []; }
+  if(arr && arr.error){
+    list.innerHTML = '<div class="honest">خطا در باز کردن صندوق: ' + esc(arr.error) + '</div>';
+    return;
+  }
+  if(!arr.length){
+    list.innerHTML = '<div class="honest">هنوز توکنی ثبت نشده. از دکمه‌ی «افزودن / مدیریت توکن‌ها» شروع کن.</div>';
+    return;
+  }
+  var html = "";
+  arr.forEach(function(t){
+    html += '<div class="card sent-card">' +
+      '<div class="top"><span class="emoji">🔑</span><div>' +
+      '<div class="name">' + esc(t.label) + '</div>' +
+      '<div class="role">ثبت: ' + esc(fmtDate(t.ts)) + '</div></div></div>' +
+      '<div class="btns2">' +
+      '<button onclick="inspectToken(\'' + t.id + '\')">🔍 بررسی</button>' +
+      '<button class="danger" onclick="requestRevoke(\'' + t.id + '\')">⛔ قطع دسترسی</button>' +
+      '</div></div>';
+  });
+  list.innerHTML = html;
+}
+function inspectToken(id){
+  if(!hasBridge()) return;
+  document.getElementById("sentDetail").innerHTML = '<div class="honest">در حال بررسی توکن…</div>';
+  try { Android.inspectToken(id); } catch(e){}
+}
+function evName(t){
+  var m = {PushEvent:"پوش", PullRequestEvent:"پول‌ریکوئست", IssuesEvent:"ای‌شیو",
+    WatchEvent:"استار", ForkEvent:"فورک", CreateEvent:"ساخت", DeleteEvent:"حذف",
+    ReleaseEvent:"ریلیز", PublicEvent:"عمومی‌سازی", MemberEvent:"عضویت"};
+  return m[t] || t || "رویداد";
+}
+function onInspectResult(jsonStr){
+  var det = document.getElementById("sentDetail");
+  var r;
+  try { r = JSON.parse(jsonStr); } catch(e){ det.innerHTML = '<div class="honest">پاسخ نامعتبر از اپ.</div>'; return; }
+  if(!r.ok){ det.innerHTML = '<div class="honest">بررسی ناموفق بود: ' + esc(r.message || "") + '</div>'; return; }
+  var o = r.owner || {};
+  var html = '<div class="card sent-detail"><div class="top">' +
+    (o.avatar ? '<img class="avatar" src="' + esc(o.avatar) + '">' : '<span class="emoji">👤</span>') +
+    '<div><div class="name">' + esc(o.login || "—") + '</div>' +
+    '<div class="role">' + esc(o.name || "") + (o.accountType ? " · " + esc(o.accountType) : "") + '</div></div></div>';
+  html += '<div class="rowline">نوع توکن: <b>' + esc(r.kindFa || r.kind || "—") + '</b></div>';
+  var perms = r.permissions || [];
+  html += '<div class="rowline">دسترسی‌ها: <b>' + (perms.length ? esc(perms.join("، ")) : "—") + '</b></div>';
+  if(r.rate){
+    var rt = r.rate;
+    html += '<div class="rowline">سهمیه‌ی API: <b>' + rt.remaining + ' از ' + rt.limit +
+      '</b> <span class="dim">(ریست: ' + esc(relFaFuture(rt.reset * 1000)) + ')</span></div>';
+    if(rt.suspicious){
+      html += '<div class="warn">⚠️ هشدار مصرف مشکوک: سهمیه‌ی باقی‌مانده به‌طور غیرعادی کم است — ' +
+        'ممکن است شخص یا ابزار دیگری هم از این توکن استفاده کند.</div>';
+    }
+  }
+  var evs = r.events || [];
+  if(evs.length){
+    html += '<div class="rowline">آخرین فعالیت‌های عمومی اکانت <span class="dim">(فقط سرنخ است، نه مدرک)</span>:</div><ul class="evlist">';
+    evs.forEach(function(e){
+      html += '<li>' + esc(evName(e.type)) + (e.repo ? ' در ' + esc(e.repo) : '') +
+        ' <span class="dim">' + esc(relFa(e.at)) + '</span></li>';
+    });
+    html += '</ul>';
+  }
+  html += '<div class="btns2"><button onclick="openSecurityLog()">📋 دیدن IPها در لاگ امنیتی گیت‌هاب</button></div>';
+  html += '</div>';
+  det.innerHTML = html;
+}
+function requestRevoke(id){
+  if(!hasBridge()) return;
+  try { Android.requestRevoke(id); } catch(e){}
+}
+function onRevokeResult(jsonStr){
+  var r = {};
+  try { r = JSON.parse(jsonStr); } catch(e){}
+  toast(r.message || (r.ok ? "انجام شد." : "ناموفق بود."));
+  refreshSentinel();
+}
+function openSecurityLog(){ if(hasBridge()){ try { Android.openSecurityLog(); } catch(e){} } }
 
 refreshFeed();
 setInterval(refreshFeed, 15000);

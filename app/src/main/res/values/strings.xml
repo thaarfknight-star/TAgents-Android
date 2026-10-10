@@ -2,10 +2,7 @@
 <resources>
     <string name="app_name">مانیتور ایجنت‌ها</string>
     <string name="settings_title">تنظیمات</string>
-    <string name="token_label">توکن گیت‌هاب (PAT)</string>
-    <string name="token_hint">توکن فقط روی همین گوشی ذخیره می‌شود و برای ثبت فرمان توقف/شروع در ریپوی TAgents لازم است. آن را از Settings → Developer settings گیت‌هاب بسازید.</string>
-    <string name="save">ذخیره</string>
-    <string name="clear">پاک کردن</string>
-    <string name="token_saved">توکن ذخیره شد</string>
-    <string name="token_cleared">توکن پاک شد</string>
+    <string name="vault_title">🛡️ صندوق توکن</string>
+    <string name="vault_hint">توکن‌ها فقط با رمزنگاری داخل همین گوشی نگه‌داری می‌شوند (EncryptedSharedPreferences + Keystore) و هرگز جایی آپلود نمی‌شوند. برای بررسی و قطع دسترسی هر توکن، از صفحه‌ی «نگهبان توکن» استفاده کن.</string>
+    <string name="vault_add">＋ افزودن توکن</string>
 </resources>
