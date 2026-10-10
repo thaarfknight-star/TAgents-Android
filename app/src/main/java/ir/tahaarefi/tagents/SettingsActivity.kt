@@ -11,6 +11,13 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.security.GeneralSecurityException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -18,9 +25,13 @@ import java.util.Locale
 /**
  * Token vault manager: add / rename / remove GitHub PATs.
  * Storage is TokenVault (EncryptedSharedPreferences + MasterKey only).
+ * Vault I/O runs off the main thread (Keystore ops can block).
+ * New tokens are validated against api.github.com before being stored
+ * (when the device is online).
  */
 class SettingsActivity : AppCompatActivity() {
     private lateinit var listBox: LinearLayout
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,20 +46,44 @@ class SettingsActivity : AppCompatActivity() {
         refresh()
     }
 
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
+    }
+
     private fun toast(msg: String) =
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 
+    /** Keystore/security failures get a friendly message, not raw tech text. */
+    private fun keystoreMessage(e: Exception): String {
+        var c: Throwable? = e
+        while (c != null) {
+            if (c is GeneralSecurityException) {
+                return getString(R.string.sentinel_err_keystore)
+            }
+            c = c.cause
+        }
+        return getString(R.string.sentinel_vault_error, e.message ?: "")
+    }
+
     private fun refresh() {
         listBox.removeAllViews()
-        val tokens = try {
-            TokenVault.list(this)
-        } catch (e: Exception) {
-            toast("خطا در باز کردن صندوق: ${e.message}")
-            return
+        scope.launch(Dispatchers.IO) {
+            val tokens = try {
+                TokenVault.list(this@SettingsActivity)
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { toast(keystoreMessage(e)) }
+                return@launch
+            }
+            withContext(Dispatchers.Main) { renderList(tokens) }
         }
+    }
+
+    private fun renderList(tokens: List<VaultToken>) {
+        listBox.removeAllViews()
         if (tokens.isEmpty()) {
             listBox.addView(TextView(this).apply {
-                text = "هنوز توکنی ثبت نشده است."
+                text = getString(R.string.sentinel_empty)
                 setTextColor(0xFF8A8F98.toInt())
                 textSize = 14f
             })
@@ -60,14 +95,14 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun buildRow(t: VaultToken, dateFa: String): LinearLayout {
+    private fun buildRow(t: VaultToken, dateStr: String): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 10, 0, 10)
         }
         val info = TextView(this).apply {
-            text = "${t.label}\n$dateFa"
+            text = "${t.label}\n$dateStr"
             setTextColor(0xFFFFFFFF.toInt())
             textSize = 14f
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -87,9 +122,9 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun showAddDialog() {
-        val labelInput = EditText(this).apply { hint = "برچسب (مثلاً: گوشی طه)" }
+        val labelInput = EditText(this).apply { hint = getString(R.string.sentinel_label_hint) }
         val tokenInput = EditText(this).apply {
-            hint = "ghp_… یا github_pat_…"
+            hint = getString(R.string.sentinel_token_hint)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
         val box = LinearLayout(this).apply {
@@ -99,30 +134,62 @@ class SettingsActivity : AppCompatActivity() {
             addView(tokenInput)
         }
         AlertDialog.Builder(this)
-            .setTitle("افزودن توکن")
+            .setTitle(getString(R.string.vault_add))
             .setView(box)
-            .setPositiveButton("ذخیره") { _, _ ->
+            .setPositiveButton(getString(R.string.sentinel_save)) { _, _ ->
+                val label = labelInput.text.toString()
                 val token = tokenInput.text.toString().trim()
                 if (token.isEmpty()) {
-                    toast("توکن خالی است")
+                    toast(getString(R.string.sentinel_token_empty))
                     return@setPositiveButton
                 }
-                try {
-                    TokenVault.add(this, labelInput.text.toString(), token)
-                    toast("توکن ذخیره شد")
-                    refresh()
-                } catch (e: Exception) {
-                    toast("خطا: ${e.message}")
-                }
+                addValidated(label, token)
             }
-            .setNegativeButton("انصراف", null)
+            .setNegativeButton(getString(R.string.sentinel_cancel), null)
             .show()
+    }
+
+    /**
+     * Validates the token with GitHub before storing. Offline devices still
+     * store the token, but the user is told it was not verified.
+     */
+    private fun addValidated(label: String, token: String) {
+        toast(getString(R.string.sentinel_checking))
+        scope.launch(Dispatchers.IO) {
+            try {
+                val valid = TokenInspector.validate(token)
+                if (!valid) {
+                    withContext(Dispatchers.Main) {
+                        toast(getString(R.string.sentinel_err_invalid))
+                    }
+                    return@launch
+                }
+                TokenVault.add(this@SettingsActivity, label, token)
+                withContext(Dispatchers.Main) {
+                    toast(getString(R.string.sentinel_saved))
+                    refresh()
+                }
+            } catch (e: TokenNetworkException) {
+                // Offline: store anyway, unverified.
+                try {
+                    TokenVault.add(this@SettingsActivity, label, token)
+                    withContext(Dispatchers.Main) {
+                        toast(getString(R.string.sentinel_saved_unverified))
+                        refresh()
+                    }
+                } catch (e2: Exception) {
+                    withContext(Dispatchers.Main) { toast(keystoreMessage(e2)) }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { toast(keystoreMessage(e)) }
+            }
+        }
     }
 
     private fun showRenameDialog(t: VaultToken) {
         val input = EditText(this).apply {
             setText(t.label)
-            hint = "این توکن دست کیه؟"
+            hint = getString(R.string.sentinel_label_hint)
         }
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -130,34 +197,34 @@ class SettingsActivity : AppCompatActivity() {
             addView(input)
         }
         AlertDialog.Builder(this)
-            .setTitle("ویرایش برچسب")
+            .setTitle(getString(R.string.sentinel_rename_title))
             .setView(box)
-            .setPositiveButton("ذخیره") { _, _ ->
+            .setPositiveButton(getString(R.string.sentinel_save)) { _, _ ->
                 try {
                     TokenVault.rename(this, t.id, input.text.toString())
                     refresh()
                 } catch (e: Exception) {
-                    toast("خطا: ${e.message}")
+                    toast(keystoreMessage(e))
                 }
             }
-            .setNegativeButton("انصراف", null)
+            .setNegativeButton(getString(R.string.sentinel_cancel), null)
             .show()
     }
 
     private fun confirmDelete(t: VaultToken) {
         AlertDialog.Builder(this)
-            .setTitle("حذف توکن")
-            .setMessage("«${t.label}» فقط از صندوق این گوشی حذف می‌شود (خود توکن در گیت‌هاب باطل نمی‌شود). ادامه می‌دهی؟")
-            .setPositiveButton("حذف") { _, _ ->
+            .setTitle(getString(R.string.sentinel_delete_title))
+            .setMessage(getString(R.string.sentinel_delete_body, t.label))
+            .setPositiveButton(getString(R.string.sentinel_delete_confirm)) { _, _ ->
                 try {
                     TokenVault.remove(this, t.id)
-                    toast("حذف شد")
+                    toast(getString(R.string.sentinel_deleted))
                     refresh()
                 } catch (e: Exception) {
-                    toast("خطا: ${e.message}")
+                    toast(keystoreMessage(e))
                 }
             }
-            .setNegativeButton("انصراف", null)
+            .setNegativeButton(getString(R.string.sentinel_cancel), null)
             .show()
     }
 }

@@ -16,6 +16,12 @@ class TokenInvalidException : IOException("توکن نامعتبر یا منقض
 /** Network-level failure while talking to api.github.com. */
 class TokenNetworkException(cause: Throwable) : IOException("خطای شبکه", cause)
 
+/** GitHub rate limit exhausted (HTTP 403 with X-RateLimit-Remaining: 0). */
+class TokenRateLimitedException(val resetEpochSec: Long) : IOException("محدودیت نرخ گیت‌هاب رد شد")
+
+/** GitHub refused to revoke this credential (HTTP 403 on /credentials/revoke). */
+class TokenRevokeForbiddenException : IOException("این توکن برای این عملیات اختیار کافی ندارد")
+
 data class TokenOwner(
     val login: String,
     val name: String?,
@@ -84,6 +90,10 @@ object TokenInspector {
         }
         userResp.use { resp ->
             if (resp.code == 401) throw TokenInvalidException()
+            if (resp.code == 403 && resp.header("X-RateLimit-Remaining") == "0") {
+                val reset = resp.header("X-RateLimit-Reset")?.toLongOrNull() ?: 0L
+                throw TokenRateLimitedException(reset)
+            }
             if (!resp.isSuccessful) throw IOException("خطای گیت‌هاب (${resp.code})")
             val body = JSONObject(resp.body?.string() ?: "{}")
             val owner = TokenOwner(
@@ -108,8 +118,8 @@ object TokenInspector {
     }
 
     /**
-     * Token kind: ghp_* = classic, github_pat_* = fine-grained.
-     * Confirmed with response headers — X-OAuth-Scopes (classic) or
+     * Token kind. Prefix first (ghp_* = classic, github_pat_* = fine-grained),
+     * then response headers — X-OAuth-Scopes (classic) or
      * X-Accepted-GitHub-Permissions (fine-grained).
      */
     private fun detectKind(token: String, userResp: Response): TokenKind {
@@ -127,6 +137,7 @@ object TokenInspector {
         val kind = when {
             byPrefix != "unknown" -> byPrefix
             scopes.isNotEmpty() -> "classic"
+            accepted.isNotEmpty() -> "fine-grained"
             else -> "unknown"
         }
         val kindFa = when (kind) {
@@ -177,6 +188,7 @@ object TokenInspector {
      * Revokes the token for ALL of its consumers.
      * Per GitHub API this call carries NO Authorization header; the token to
      * revoke travels in the request body only. Returns true on HTTP 204.
+     * Throws [TokenRevokeForbiddenException] on HTTP 403.
      */
     @Throws(IOException::class)
     fun revoke(token: String): Boolean {
@@ -192,7 +204,27 @@ object TokenInspector {
             .build()
         try {
             client.newCall(req).execute().use { resp ->
-                return resp.code == 204
+                if (resp.code == 204) return true
+                if (resp.code == 403) throw TokenRevokeForbiddenException()
+                return false
+            }
+        } catch (e: TokenRevokeForbiddenException) {
+            throw e
+        } catch (e: IOException) {
+            throw TokenNetworkException(e)
+        }
+    }
+
+    /**
+     * Lightweight validation: true when GitHub accepts the token.
+     * Returns false on 401 (invalid/expired); throws on network failure.
+     */
+    @Throws(IOException::class)
+    fun validate(token: String): Boolean {
+        try {
+            get(token, "/user").use { resp ->
+                if (resp.code == 401) return false
+                return resp.isSuccessful
             }
         } catch (e: IOException) {
             throw TokenNetworkException(e)

@@ -99,7 +99,8 @@ class JsBridge(private val activity: Activity, private val webView: WebView) {
         scope.launch(Dispatchers.IO) {
             val out = JSONObject()
             try {
-                val token = TokenVault.tokenOf(activity, id) ?: throw RuntimeException("توکن پیدا نشد")
+                val token = TokenVault.tokenOf(activity, id)
+                    ?: throw RuntimeException(activity.getString(R.string.sentinel_token_not_found))
                 val r = TokenInspector.inspect(token)
                 out.put("ok", true)
                 out.put(
@@ -135,10 +136,19 @@ class JsBridge(private val activity: Activity, private val webView: WebView) {
                 out.put("events", evs)
             } catch (e: Exception) {
                 out.put("ok", false)
-                out.put("message", e.message ?: "خطای نامشخص")
+                out.put("message", userMessage(e))
             }
             jsCallback("onInspectResult", out)
         }
+    }
+
+    /** Maps inspector exceptions to user-facing Persian strings. */
+    private fun userMessage(e: Exception): String = when (e) {
+        is TokenInvalidException -> activity.getString(R.string.sentinel_err_invalid)
+        is TokenNetworkException -> activity.getString(R.string.sentinel_err_no_internet)
+        is TokenRateLimitedException -> activity.getString(R.string.sentinel_err_rate_limited)
+        is TokenRevokeForbiddenException -> activity.getString(R.string.sentinel_err_weak)
+        else -> e.message ?: activity.getString(R.string.sentinel_err_unknown)
     }
 
     /**
@@ -155,32 +165,40 @@ class JsBridge(private val activity: Activity, private val webView: WebView) {
         if (entry == null) {
             jsCallback(
                 "onRevokeResult",
-                JSONObject().put("ok", false).put("message", "توکن پیدا نشد.")
+                JSONObject().put("ok", false)
+                    .put("message", activity.getString(R.string.sentinel_token_not_found))
             )
             return
         }
-        activity.runOnUiThread { confirmRevokeStep1(entry) }
+        // Warn explicitly when revoking the vault's primary token (the one the
+        // app itself uses for the command loop).
+        val isPrimary = try {
+            TokenVault.list(activity).firstOrNull()?.id == id
+        } catch (_: Exception) {
+            false
+        }
+        activity.runOnUiThread { confirmRevokeStep1(entry, isPrimary) }
     }
 
-    private fun confirmRevokeStep1(entry: VaultToken) {
+    private fun confirmRevokeStep1(entry: VaultToken, isPrimary: Boolean) {
+        var msg = activity.getString(R.string.sentinel_revoke_body, entry.label)
+        if (isPrimary) msg += activity.getString(R.string.sentinel_revoke_self_warning)
         AlertDialog.Builder(activity)
-            .setTitle("قطع دسترسی توکن")
-            .setMessage(
-                "توکن «${entry.label}» برای «همه» سیستم‌ها و ابزارهایی که از آن " +
-                    "استفاده می‌کنند — از جمله همین اپ — قطع می‌شود.\n\n" +
-                    "امکان قطع تکی یک مصرف‌کننده وجود ندارد و این عمل برگشت‌ناپذیر است."
-            )
-            .setPositiveButton("ادامه") { _, _ -> confirmRevokeStep2(entry) }
-            .setNegativeButton("انصراف", null)
+            .setTitle(activity.getString(R.string.sentinel_revoke_title))
+            .setMessage(msg)
+            .setPositiveButton(activity.getString(R.string.sentinel_revoke_continue)) { _, _ ->
+                confirmRevokeStep2(entry)
+            }
+            .setNegativeButton(activity.getString(R.string.sentinel_cancel), null)
             .show()
     }
 
     private fun confirmRevokeStep2(entry: VaultToken) {
         AlertDialog.Builder(activity)
-            .setTitle("تأیید نهایی")
-            .setMessage("آخرین تأیید: توکن «${entry.label}» برای همیشه باطل شود؟")
-            .setPositiveButton("بله، قطع کن") { _, _ -> doRevoke(entry) }
-            .setNegativeButton("انصراف", null)
+            .setTitle(activity.getString(R.string.sentinel_revoke_final_title))
+            .setMessage(activity.getString(R.string.sentinel_revoke_final_body, entry.label))
+            .setPositiveButton(activity.getString(R.string.sentinel_revoke_confirm)) { _, _ -> doRevoke(entry) }
+            .setNegativeButton(activity.getString(R.string.sentinel_cancel), null)
             .show()
     }
 
@@ -189,19 +207,19 @@ class JsBridge(private val activity: Activity, private val webView: WebView) {
             val out = JSONObject()
             try {
                 val token = TokenVault.tokenOf(activity, entry.id)
-                    ?: throw RuntimeException("توکن پیدا نشد")
+                    ?: throw RuntimeException(activity.getString(R.string.sentinel_token_not_found))
                 val ok = TokenInspector.revoke(token)
                 if (ok) {
                     TokenVault.remove(activity, entry.id)
                     out.put("ok", true)
-                    out.put("message", "توکن «${entry.label}» قطع و از صندوق حذف شد.")
+                    out.put("message", activity.getString(R.string.sentinel_revoked, entry.label))
                 } else {
                     out.put("ok", false)
-                    out.put("message", "گیت‌هاب قطع دسترسی را تأیید نکرد.")
+                    out.put("message", activity.getString(R.string.sentinel_revoke_denied))
                 }
             } catch (e: Exception) {
                 out.put("ok", false)
-                out.put("message", e.message ?: "خطای نامشخص")
+                out.put("message", userMessage(e))
             }
             jsCallback("onRevokeResult", out)
         }

@@ -5,4 +5,41 @@
     <string name="vault_title">🛡️ صندوق توکن</string>
     <string name="vault_hint">توکن‌ها فقط با رمزنگاری داخل همین گوشی نگه‌داری می‌شوند (EncryptedSharedPreferences + Keystore) و هرگز جایی آپلود نمی‌شوند. برای بررسی و قطع دسترسی هر توکن، از صفحه‌ی «نگهبان توکن» استفاده کن.</string>
     <string name="vault_add">＋ افزودن توکن</string>
+
+    <!-- نگهبان توکن: صندوق -->
+    <string name="sentinel_empty">هنوز توکنی ثبت نشده است.</string>
+    <string name="sentinel_label_hint">این توکن دست کیه؟ (مثلاً: گوشی طه)</string>
+    <string name="sentinel_token_hint">ghp_… یا github_pat_…</string>
+    <string name="sentinel_token_empty">توکن خالی است</string>
+    <string name="sentinel_saved">توکن ذخیره شد</string>
+    <string name="sentinel_saved_unverified">توکن ذخیره شد (اینترنت نبود؛ اعتبار آن بررسی نشد)</string>
+    <string name="sentinel_deleted">حذف شد</string>
+    <string name="sentinel_delete_title">حذف توکن</string>
+    <string name="sentinel_delete_body">«%1$s» فقط از صندوق این گوشی حذف می‌شود (خود توکن در گیت‌هاب باطل نمی‌شود). ادامه می‌دهی؟</string>
+    <string name="sentinel_delete_confirm">حذف</string>
+    <string name="sentinel_rename_title">ویرایش برچسب</string>
+    <string name="sentinel_save">ذخیره</string>
+    <string name="sentinel_cancel">انصراف</string>
+    <string name="sentinel_vault_error">خطا در باز کردن صندوق: %1$s</string>
+    <string name="sentinel_checking">در حال بررسی توکن…</string>
+
+    <!-- نگهبان توکن: قطع دسترسی -->
+    <string name="sentinel_revoke_title">قطع دسترسی توکن</string>
+    <string name="sentinel_revoke_body">توکن «%1$s» برای «همه» سیستم‌ها و ابزارهایی که از آن استفاده می‌کنند — از جمله همین اپ — قطع می‌شود.\n\nامکان قطع تکی یک مصرف‌کننده وجود ندارد و این عمل برگشت‌ناپذیر است.</string>
+    <string name="sentinel_revoke_self_warning">\n\n⚠️ هشدار: این توکن، توکن خودِ همین برنامه است؛ بعد از قطع، فرمان‌های توقف/شروع کار نمی‌کنند.</string>
+    <string name="sentinel_revoke_final_title">تأیید نهایی</string>
+    <string name="sentinel_revoke_final_body">آخرین تأیید: توکن «%1$s» برای همیشه باطل شود؟</string>
+    <string name="sentinel_revoke_confirm">بله، قطع کن</string>
+    <string name="sentinel_revoke_continue">ادامه</string>
+    <string name="sentinel_revoked">توکن «%1$s» قطع و از صندوق حذف شد.</string>
+    <string name="sentinel_revoke_denied">گیت‌هاب قطع دسترسی را تأیید نکرد.</string>
+
+    <!-- نگهبان توکن: خطاها -->
+    <string name="sentinel_err_invalid">توکن نامعتبر یا منقضی است</string>
+    <string name="sentinel_err_no_internet">اتصال اینترنت برقرار نیست</string>
+    <string name="sentinel_err_rate_limited">محدودیت نرخ گیت‌هاب رد شد؛ بعداً تلاش کنید</string>
+    <string name="sentinel_err_weak">این توکن برای این عملیات اختیار کافی ندارد</string>
+    <string name="sentinel_err_keystore">باز کردن صندوق امن ناموفق بود (Keystore گوشی). قفل صفحه را فعال کنید و دوباره تلاش کنید.</string>
+    <string name="sentinel_err_unknown">خطای نامشخص</string>
+    <string name="sentinel_token_not_found">توکن پیدا نشد</string>
 </resources>
